@@ -1,7 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-
 before_words = ["time", "little", "eyes", "looked", "head", "hand", "door", "people", "own", "look"]
 before_counts = [75070, 47204, 44543, 43197, 36683, 36631, 35585, 33432, 33292, 32633]
 

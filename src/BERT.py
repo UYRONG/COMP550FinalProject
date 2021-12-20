@@ -2,9 +2,11 @@ import numpy as np
 import pandas as pd
 import torch, os
 # this is the package for the light version of BERT
-import transformers as ppb
+import transformers
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
+# some of the functions are referenced from
+# https://colab.research.google.com/github/jalammar/jalammar.github.io/blob/master/notebooks/bert/A_Visual_Notebook_to_Using_BERT_for_the_First_Time.ipynb#scrollTo=cyEwr7yYD3Ci
 
 available_names = dict()
 books_path = "/Users/leocheung/Desktop/brm_project/pure_cleaned_data/"
@@ -80,6 +82,26 @@ def load_author_info():
     return author_dic
 
 
+def get_embeddings(words, model):
+    max = 0
+    for i in words.values:
+        if len(i) > max:
+            max = len(i)
+    input = np.array([i + [0] * (max - len(i)) for i in words.values])
+    mask = np.where(input != 0, 1, 0)
+
+    print("Start to encode the texts")
+    ids = torch.tensor(input)
+    mask = torch.tensor(mask)
+
+    print("Start to train!")
+    with torch.no_grad():
+        bert_output = model(ids, attention_mask=mask)
+
+    embeddings = bert_output[0][:, 0, :].numpy()
+    return embeddings
+
+
 def main():
     # do some author retrieving stuff
     preload_names()
@@ -123,61 +145,34 @@ def main():
 
     # df = pd.read_csv("/Users/leocheung/Desktop/comp550_project/resources/sample.tsv", delimiter='\t', header=None)
     # df.head()
-    batch_1 = df.sample(n=4000)
+    corpora = df.sample(n=4000)
     df = None
     dataset = None
     # batch_1 = df
     # exit(0)
     # import the BERT model even though this is a distilled version (i.e. light version compared to the original BERT)
-    model_class, tokenizer_class, pretrained_weights = (
-        ppb.DistilBertModel, ppb.DistilBertTokenizer, 'distilbert-base-uncased')
+    model, tokenizer, initial_weights = (
+        transformers.DistilBertModel, transformers.DistilBertTokenizer, 'distilbert-base-uncased')
 
-    # Load pretrained model/tokenizer
-    tokenizer = tokenizer_class.from_pretrained(pretrained_weights)
-    model = model_class.from_pretrained(pretrained_weights)
+    # load the model and tokenizer
+    tokenizer = tokenizer.from_pretrained(initial_weights)
+    model = model.from_pretrained(initial_weights)
 
     print("Start to tokenize the texts")
-    tokenized = batch_1["text"].apply(
-        (lambda x: tokenizer.encode(x, add_special_tokens=True, max_length=512, truncation=True)))
+    words = corpora["text"].apply(
+        (lambda text: tokenizer.encode(text, add_special_tokens=True, max_length=512, truncation=True)))
     print("Finish to tokenize the texts")
     # exit(0)
-
-    max_len = 0
-    for i in tokenized.values:
-        if len(i) > max_len:
-            max_len = len(i)
-
-    padded = np.array([i + [0] * (max_len - len(i)) for i in tokenized.values])
-
-    attention_mask = np.where(padded != 0, 1, 0)
-
-    print("Start to encode the texts")
-    input_ids = torch.tensor(padded)
-    attention_mask = torch.tensor(attention_mask)
-
-    print("Start to train!")
-    with torch.no_grad():
-        last_hidden_states = model(input_ids, attention_mask=attention_mask)
-
-    features = last_hidden_states[0][:, 0, :].numpy()
+    embeddings = get_embeddings(words, model)
     print("Finish to encode the texts")
-
-    labels = batch_1["label"]
-
+    labels = corpora["label"]
     print("Start to split the dataset")
-    train_features, test_features, train_labels, test_labels = train_test_split(features, labels)
+    train_features, test_features, train_labels, test_labels = train_test_split(embeddings, labels)
 
-    # parameters = {'C': np.linspace(0.0001, 100, 20, 1)}
-    # grid_search = GridSearchCV(LogisticRegression(max_iter=100), parameters)
-    # grid_search.fit(train_features, train_labels)
-    #
-    # print('best parameters: ', grid_search.best_params_)
-    # print('best scrores: ', grid_search.best_score_)
-
-    lr_clf = LogisticRegression(max_iter=1000)
+    classifier = LogisticRegression(max_iter=1000)
     print("Start to train the logistic regression models")
-    lr_clf.fit(train_features, train_labels)
-    print("The accuracy is " + str(lr_clf.score(test_features, test_labels)))
+    classifier.fit(train_features, train_labels)
+    print("The accuracy is " + str(classifier.score(test_features, test_labels)))
 
 
 if __name__ == "__main__":
