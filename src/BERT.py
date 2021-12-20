@@ -5,7 +5,7 @@ import torch, os
 import transformers
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
-# some of the functions are referenced from
+# some of the API functions are referenced from
 # https://colab.research.google.com/github/jalammar/jalammar.github.io/blob/master/notebooks/bert/A_Visual_Notebook_to_Using_BERT_for_the_First_Time.ipynb#scrollTo=cyEwr7yYD3Ci
 
 available_names = dict()
@@ -91,6 +91,7 @@ def get_embeddings(words, model):
     mask = np.where(input != 0, 1, 0)
 
     print("Start to encode the texts")
+    #  this is the deep learning part
     ids = torch.tensor(input)
     mask = torch.tensor(mask)
 
@@ -98,6 +99,8 @@ def get_embeddings(words, model):
     with torch.no_grad():
         bert_output = model(ids, attention_mask=mask)
 
+    # only get the embedding for the entire sample
+    # no need to get the embedding for each word in the sample
     embeddings = bert_output[0][:, 0, :].numpy()
     return embeddings
 
@@ -143,16 +146,11 @@ def main():
           .apply(lambda x: x.sample(n=balance_size))
           .reset_index(drop=True))
 
-    # df = pd.read_csv("/Users/leocheung/Desktop/comp550_project/resources/sample.tsv", delimiter='\t', header=None)
-    # df.head()
     corpora = df.sample(n=4000)
     df = None
     dataset = None
-    # batch_1 = df
-    # exit(0)
     # import the BERT model even though this is a distilled version (i.e. light version compared to the original BERT)
-    model, tokenizer, initial_weights = (
-        transformers.DistilBertModel, transformers.DistilBertTokenizer, 'distilbert-base-uncased')
+    model, tokenizer, initial_weights = (transformers.DistilBertModel, transformers.DistilBertTokenizer, 'distilbert-base-uncased')
 
     # load the model and tokenizer
     tokenizer = tokenizer.from_pretrained(initial_weights)
